@@ -31,27 +31,22 @@ type Post struct {
 var posts []Post = []Post{}
 
 func main() {
-	// router := mux.NewRouter()
-
-	// router.HandleFunc("/posts", getAllPosts).Methods("GET")
-
-	// router.HandleFunc("/posts", addPost).Methods("POST")
-
-	// router.HandleFunc("/posts/{id}", getPosts).Methods("GET")
-
-	// router.HandleFunc("/posts/{id}", updatePost).Methods("PUT")
-
-	// router.HandleFunc("/posts/{id}", patchPost).Methods("PATCH")
-
-	// router.HandleFunc("/posts/{id}", deletePost).Methods("DELETE")
-
-	// log.Fatal(http.ListenAndServe(":5000", router))
 
 	l := log.New(os.Stdout, "Posts-api", log.LstdFlags)
 	handlerPosts := handlers.NewPost(l)
 
-	serveMux := http.NewServeMux()
-	serveMux.Handle("/", handlerPosts)
+	serveMux := mux.NewRouter()
+
+	getRouter := serveMux.Methods("GET").Subrouter()
+	getRouter.HandleFunc("/", handlerPosts.GetPosts)
+
+	putRouter := serveMux.Methods("PUT").Subrouter()
+	putRouter.HandleFunc("/{id:[0-9]+}", handlerPosts.UpdatePost)
+	putRouter.Use(handlerPosts.MiddlewarePostValidation)
+
+	postRouter := serveMux.Methods("POST").Subrouter()
+	postRouter.HandleFunc("/", handlerPosts.AddPost)
+	postRouter.Use(handlerPosts.MiddlewarePostValidation)
 
 	server := &http.Server{
 		Addr:         ":9090",
