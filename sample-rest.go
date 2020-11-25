@@ -2,13 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"samplerest/handlers"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -36,6 +34,7 @@ func main() {
 	handlerPosts := handlers.NewPost(l)
 
 	serveMux := mux.NewRouter()
+	serveMux.Use(commonMiddleware)
 
 	getRouter := serveMux.Methods("GET").Subrouter()
 	getRouter.HandleFunc("/", handlerPosts.GetPosts)
@@ -47,6 +46,9 @@ func main() {
 	postRouter := serveMux.Methods("POST").Subrouter()
 	postRouter.HandleFunc("/", handlerPosts.AddPost)
 	postRouter.Use(handlerPosts.MiddlewarePostValidation)
+
+	delRouter := serveMux.Methods("DELETE").Subrouter()
+	delRouter.HandleFunc("/{id:[0-9]+}", handlerPosts.DeletePost)
 
 	server := &http.Server{
 		Addr:         ":9090",
@@ -74,111 +76,9 @@ func main() {
 	server.Shutdown(timeOutContext)
 }
 
-func getPosts(w http.ResponseWriter, r *http.Request) {
-	var idParam string = mux.Vars(r)["id"]
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		// handling the error
-		w.WriteHeader(400)
-		w.Write([]byte("ID could not be converted to an integer!"))
-		return
-	}
-
-	if id >= len(posts) {
-		w.WriteHeader(404)
-		w.Write([]byte("No post found!"))
-		return
-	}
-
-	post := posts[id]
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(post)
-
-}
-
-func addPost(w http.ResponseWriter, r *http.Request) {
-	//get item from request body
-	var newPost Post
-	json.NewDecoder(r.Body).Decode(&newPost)
-	posts = append(posts, newPost)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(posts)
-}
-
-func getAllPosts(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(posts)
-}
-
-func updatePost(w http.ResponseWriter, r *http.Request) {
-	var idParam string = mux.Vars(r)["id"]
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		// handling the error
-		w.WriteHeader(400)
-		w.Write([]byte("ID could not be converted to an integer!"))
-		return
-	}
-
-	if id >= len(posts) {
-		w.WriteHeader(404)
-		w.Write([]byte("No post found!"))
-		return
-	}
-
-	var updatedPost Post
-	json.NewDecoder(r.Body).Decode(&updatedPost)
-
-	posts[id] = updatedPost
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedPost)
-}
-
-func patchPost(w http.ResponseWriter, r *http.Request) {
-	var idParam string = mux.Vars(r)["id"]
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		// handling the error
-		w.WriteHeader(400)
-		w.Write([]byte("ID could not be converted to an integer!"))
-		return
-	}
-
-	if id >= len(posts) {
-		w.WriteHeader(404)
-		w.Write([]byte("No post found!"))
-		return
-	}
-
-	post := &posts[id]
-	json.NewDecoder(r.Body).Decode(post)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(post)
-
-}
-
-func deletePost(w http.ResponseWriter, r *http.Request) {
-	var idParam string = mux.Vars(r)["id"]
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		// handling the error
-		w.WriteHeader(400)
-		w.Write([]byte("ID could not be converted to an integer!"))
-		return
-	}
-
-	if id >= len(posts) {
-		w.WriteHeader(404)
-		w.Write([]byte("No post found!"))
-		return
-	}
-
-	posts = append(posts[:id], posts[id+1:]...)
-
-	w.WriteHeader(200)
-
+func commonMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
+	})
 }

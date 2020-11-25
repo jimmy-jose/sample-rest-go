@@ -59,6 +59,25 @@ func (post Post) UpdatePost(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeletePost Deletes a particular post for the database
+func (post Post) DeletePost(rw http.ResponseWriter, r *http.Request) {
+	post.l.Println("Handle DELETE Post")
+
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(rw, "Unable to parse id", http.StatusBadRequest)
+		return
+	}
+
+	err = data.DeletePost(id)
+
+	if err != nil {
+		http.Error(rw, "Post not found", http.StatusNotFound)
+		return
+	}
+}
+
 type KeyPost struct{}
 
 // MiddlewarePostValidation handles the post validations
@@ -68,6 +87,13 @@ func (post Post) MiddlewarePostValidation(next http.Handler) http.Handler {
 		err := postData.FromJSON(r.Body)
 		if err != nil {
 			http.Error(rw, "Unable to unmarshall json", http.StatusBadRequest)
+			return
+		}
+		// validate
+		err = postData.Validate()
+		if err != nil {
+			post.l.Println("Error validating post", err)
+			http.Error(rw, "Error reading post", http.StatusBadRequest)
 			return
 		}
 		ctx := context.WithValue(r.Context(), KeyPost{}, postData)

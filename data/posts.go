@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"github.com/go-playground/validator/v10"
 )
 
 //User is a struct that represents a User
@@ -19,7 +21,7 @@ type User struct {
 
 //Post is a struct that represents a post
 type Post struct {
-	Title     string `json:"title"`
+	Title     string `json:"title" validate:"required"`
 	Body      string `json:"body"`
 	Author    User   `json:"author"`
 	CreatedOn string `json:"-"`
@@ -29,6 +31,12 @@ type Post struct {
 
 // Posts is a custom type which has an inbuilt toJson Method
 type Posts []*Post
+
+// Validate is used to validate the struct
+func (p *Post) Validate() error {
+	validate := validator.New()
+	return validate.Struct(p)
+}
 
 // ToJSON encodes the posts slice (p) into json and writes it to the io writer
 func (p *Posts) ToJSON(w io.Writer) error {
@@ -56,6 +64,15 @@ func AddPost(post *Post) {
 func UpdatePost(id int, post *Post) error {
 	if isPresent(id) {
 		postList[id] = post
+		return nil
+	}
+	return ErrorPostNotFound
+}
+
+// DeletePost delete the post at index id. Returns Error in case post cannot be found
+func DeletePost(id int) error {
+	if isPresent(id) {
+		postList = append(postList[:id], postList[id+1:]...)
 		return nil
 	}
 	return ErrorPostNotFound
